@@ -5,6 +5,8 @@ import store from './store';
 import Login from './components/Login';
 import FileUpload from './components/FileUpload';
 import './App.css';
+import Home from './components/Home';
+import Register from './components/Register';
 import MFA from './components/MFA';
 
 function App() {
@@ -13,7 +15,9 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/fileupload" element={<FileUpload />} />
             <Route path="/mfa" element={<MFA />} />
           </Routes>

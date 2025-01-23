@@ -12,10 +12,18 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const result = await dispatch(login(username, password));
-    if (result.payload && result.payload.mfa_required) {
-      navigate('/mfa'); // Redirect to MFA page if MFA is required
-    } else if (result.payload) {
-      navigate('/fileupload'); // Redirect upon successful login
+    if (result && result.data) {
+      if (result.data.mfa_required) {
+        navigate('/mfa'); // Redirect to MFA page if MFA is required
+      } else if (result.data.access && result.data.refresh) {
+        navigate('/fileupload'); // Redirect upon successful login
+      } else if (result.data.error === 'Invalid credentials') {
+        alert('Invalid credentials. Please check your username and password.');
+      } else {
+        console.error('Login failed or token check failed', result);
+      }
+    } else {
+      console.error('Login request did not return expected result', result);
     }
   }; 
 

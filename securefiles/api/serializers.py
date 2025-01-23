@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import User, File
 
+import datetime
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -16,6 +18,10 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 class FileSerializer(serializers.ModelSerializer):
+    upload_date = serializers.DateTimeField(default=datetime.datetime.now)
+    user_id = serializers.PrimaryKeyRelatedField(read_only=True, source='user.id')
+    encrypted_content = serializers.CharField()
+
     class Meta:
         model = File
-        fields = ['id', 'user', 'file_name', 'encrypted_content', 'upload_date']
+        fields = ['id', 'file_name', 'encrypted_content', 'upload_date', 'user_id']
