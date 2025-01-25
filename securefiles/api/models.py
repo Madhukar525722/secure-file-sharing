@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
+from django.utils import timezone
+from uuid import uuid4
 
 class User(AbstractUser):
     mfa_enabled = models.BooleanField(default=False)
@@ -41,3 +43,12 @@ class Permission(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.file.file_name} ({self.permission_type})"
+
+class ShareLink(models.Model):
+    token = models.UUIDField(default=uuid4, unique=True, editable=False)
+    file = models.ForeignKey(File, on_delete=models.CASCADE)
+    expiration_time = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return self.used or timezone.now() > self.expiration_time

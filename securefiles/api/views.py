@@ -1,12 +1,15 @@
 import jwt
+import os
 import base64
 from django.conf import settings
+from django.http import HttpResponse, Http404
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework.views import APIView, View
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, File
+from urllib.parse import quote
+from .models import User, File, ShareLink
 from .serializers import UserSerializer, FileSerializer
 import pyotp
 import logging
@@ -57,14 +60,18 @@ class LoginView(APIView):
                 return Response({'refresh': str(refresh), 'access': str(refresh.access_token)})
         return Response({'error': 'Invalid credentials'}, status=400)
 
-@api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
-def user_files(request):
-    user = request.user
-    files = File.objects.filter(user=user)
-    serializer = FileSerializer(files, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+class ListUserFilesView(APIView):
+    @permission_classes([permissions.IsAuthenticated])
+    def get(self, request, *args, **kwargs):
+        auth_header = self.request.headers.get('Authorization')
+        token = auth_header.split(' ')[1] if auth_header else None
+        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded.get('user_id')
+        files = File.objects.filter(user_id=user_id)
+        serializer = FileSerializer(files, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
+    
 class FileUploadView(generics.CreateAPIView):
     serializer_class = FileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -79,9 +86,58 @@ class FileUploadView(generics.CreateAPIView):
                 user_id = decoded.get('user_id')
                 print(f"Decoded user_id: {user_id}")
                 user = User.objects.get(id=user_id)
-                encrypted_content_base64 = decoded.get('encrypted_content', '')
-                encrypted_content_bytes = base64.b64decode(encrypted_content_base64)
-                print(f"Encrypted content (base64 decoded bytes): {encrypted_content_bytes}")
+                encrypted_content = self.request.data.get('encrypted_content')
+                encrypted_content_bytes = base64.b64decode(encrypted_content)
+                print(f"Encrypted content (base64 decoded bytes): {encrypted_content}")
                 serializer.save(user=user, encrypted_content=encrypted_content_bytes)
             except (jwt.ExpiredSignatureError, jwt.DecodeError, User.DoesNotExist) as e:
                 print(f"JWT decoding error or user not found: {e}")
+
+
+class DownloadFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, file_id, *args, **kwargs):
+        auth_header = self.request.headers.get('Authorization')
+        token = auth_header.split(' ')[1] if auth_header else None
+        decoded = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        user_id = decoded.get('user_id')
+        try:
+            file = File.objects.get(id=file_id, user_id=user_id)
+        except File.DoesNotExist:
+            raise Http404("File does not exist")
+
+        encrypted_content = file.encrypted_content
+        decrypted_content = base64.b64encode(encrypted_content)  # Decrypt content
+        print(f"Encrypted content (base64 decoded bytes): {decrypted_content}")
+        
+        
+        response = HttpResponse(decrypted_content, content_type="application/octet-stream")
+        response['Content-Disposition'] = f'attachment; filename="{quote(file.file_name)}"'
+        return response
+
+class CreateShareLinkView(View):
+    def post(self, request, file_id):
+        file = get_object_or_404(File, id=file_id)
+        expiration_time = timezone.now() + datetime.timedelta(hours=1)  # link expires in 1 hour
+        share_link = ShareLink.objects.create(file=file, expiration_time=expiration_time)
+        return JsonResponse({'share_link': request.build_absolute_uri(f'/api/files/share/{share_link.token}/')})
+
+
+# class DownloadViaShareLinkView(View):
+#     def get(self, request, token):
+#         try:
+#             share_link = ShareLink.objects.get(token=token)
+#         except ShareLink.DoesNotExist:
+#             raise Http404("Share link not found")
+
+#         if share_link.is_expired():
+#             raise Http404("Share link expired or already used")
+
+#         # Mark the link as used
+#         share_link.used = True
+#         share_link.save()
+
+#         response = HttpResponse(share_link.file.content, content_type='application/octet-stream')
+#         response['Content-Disposition'] = f'attachment; filename="{share_link.file.file_name}"'
+#         return response

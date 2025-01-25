@@ -1,5 +1,4 @@
-//import React, { useState, useEffect } from 'react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../actions/auth';
@@ -8,24 +7,27 @@ import CryptoJS from 'crypto-js';
 
 const FileUpload = () => {
   const [file, setFile] = useState(null);
-//  const [files, setFiles] = useState([]);
-  const [files] = useState([]);
+  const [files, setFiles] = useState([]);
+  const [shareLink, setShareLink] = useState('');
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Define fetchFiles function
-  // const fetchFiles = async () => {
-  //   const response = await axios.get('/api/user/files', {
-  //     headers: {
-  //       'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-  //     },
-  //   });
-  //   setFiles(response.data);
-  // };
+  const fetchFiles = async () => {
+    try {
+      const response = await axios.get('/api/files/', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
+      setFiles(response.data);
+    } catch (error) {
+      console.error('Error fetching files:', error.response ? error.response.data : error);
+    }
+  };
 
-  // useEffect(() => {
-  //   fetchFiles();
-  // }, []);
+  useEffect(() => {
+    fetchFiles();
+  }, []);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -51,13 +53,16 @@ const FileUpload = () => {
             'Authorization': `Bearer ${token}`
           }
         });
+        for (let pair of formData.entries()) {
+          console.log(pair[0] + ': ' + pair[1]);
+        }
         console.log('File upload response:', response.data);
         alert('File uploaded successfully!');
       } catch (error) {
         console.error('File upload error:', error.response ? error.response.data : error);
         alert('File upload failed');
       }
- //     fetchFiles();  // Refresh the file list after upload
+      fetchFiles();  // Refresh the file list after upload
     };
     reader.readAsDataURL(file);
   };
@@ -65,6 +70,46 @@ const FileUpload = () => {
   const handleLogout = () => {
     dispatch(logout());
     navigate('/'); // Redirect to login page
+  };
+
+  const handleFileDownload = (fileId) => {
+
+    axios({
+      url: `/api/files/download/${fileId}/`,
+      method: 'GET',
+      responseType: 'blob',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+      }, // Important
+    }).then((response) => {
+      const fileName = response.headers['content-disposition'].split('filename=')[1].replace(/"/g, '');
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const decryptedContent = CryptoJS.AES.decrypt(e.target.result, 'encryption_key').toString(CryptoJS.enc.Utf8);
+        const link = document.createElement('a');
+        link.href = decryptedContent;
+        link.setAttribute('download', fileName); // Use the file name from the file list
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      reader.readAsText(response.data);
+    }).catch((error) => {
+      console.error('Error downloading file:', error);
+    });
+  };
+
+  const handleCreateShareLink = (file) => {
+    axios.post(`/api/files/share/${file.id}/`, {}, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+      },
+    }).then((response) => {
+      setShareLink(response.data.share_link);
+    }).catch((error) => {
+      console.error('Error creating share link:', error);
+    });
   };
 
   return (
@@ -88,6 +133,8 @@ const FileUpload = () => {
             <tr key={file.id}>
               <td>{file.file_name}</td>
               <td>{new Date(file.upload_date).toLocaleDateString()}</td>
+              <button onClick={() => handleFileDownload(file.id)}>Download</button>
+              <button onClick={() => handleCreateShareLink(file)}>Create Share Link</button>
             </tr>
           ))}
         </tbody>

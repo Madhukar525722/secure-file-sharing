@@ -6,6 +6,8 @@ WORKDIR /app
 # Copy frontend source files
 COPY securefiles-frontend/package.json securefiles-frontend/package-lock.json ./
 RUN npm install redux react-redux redux-thunk axios web-vitals
+RUN npm install @mui/material @emotion/react @emotion/styled
+RUN npm install @mui/icons-material
 COPY securefiles-frontend/ ./
 RUN npm start
 
