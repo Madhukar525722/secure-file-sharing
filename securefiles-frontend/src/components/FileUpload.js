@@ -1,10 +1,9 @@
-// START GENAI
 import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../actions/auth';
 import axios from 'axios';
-import { AppBar, Toolbar, Typography, IconButton, Button, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material';
+import { AppBar, Toolbar, Typography, IconButton, Button, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CryptoJS from 'crypto-js';
 
@@ -12,8 +11,27 @@ const FileUpload = () => {
   const [file, setFile] = useState(null);
   const [files, setFiles] = useState([]);
   const [shareLink, setShareLink] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  const getCookie = (name) => {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        // Does this cookie string begin with the name we want?
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  };
+
+  const csrfToken = getCookie('csrftoken');
 
   const fetchFiles = async () => {
     try {
@@ -49,7 +67,7 @@ const FileUpload = () => {
       const token = localStorage.getItem('authToken');
 
       try {
-        const response = await axios.post('/api/fileupload/', formData, {
+        await axios.post('/api/fileupload/', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}`
@@ -97,16 +115,30 @@ const FileUpload = () => {
     });
   };
 
+
   const handleCreateShareLink = (file) => {
-    axios.post(`/api/files/share/${file.id}/`, {}, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-      },
-    }).then((response) => {
-      setShareLink(response.data.share_link);
-    }).catch((error) => {
-      console.error('Error creating share link:', error);
-    });
+
+    const linkType = window.prompt('Enter link type (view/download):');
+
+    if (linkType === 'view' || linkType === 'download') {
+      axios.post(`/api/files/share/${file.id}/`, { link_type: linkType }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+          'X-CSRFToken': csrfToken,
+        },
+      }).then((response) => {
+        setShareLink(response.data.share_link);
+        setDialogOpen(true);
+      }).catch((error) => {
+        console.error('Error creating share link:', error);
+      });
+    } else {
+      alert('Invalid link type. Please enter "view" or "download".');
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
   };
 
   return (
@@ -180,6 +212,22 @@ const FileUpload = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog open={dialogOpen} onClose={handleCloseDialog}>
+        <DialogTitle>Share Link</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Here is your share link:
+          </DialogContentText>
+          <Typography variant="body2" color="primary">{shareLink}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </div>
   );
 };

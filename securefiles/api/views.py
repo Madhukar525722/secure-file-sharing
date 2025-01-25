@@ -1,8 +1,10 @@
 import jwt
 import os
 import base64
+from datetime import datetime, timezone, timedelta
 from django.conf import settings
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, JsonResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -118,10 +120,33 @@ class DownloadFileView(APIView):
 
 class CreateShareLinkView(View):
     def post(self, request, file_id):
-        file = get_object_or_404(File, id=file_id)
-        expiration_time = timezone.now() + datetime.timedelta(hours=1)  # link expires in 1 hour
-        share_link = ShareLink.objects.create(file=file, expiration_time=expiration_time)
+        try:
+            file = File.objects.get(id=file_id)
+            encrypted_content = file.encrypted_content
+            decrypted_content = base64.b64encode(encrypted_content)
+
+            new_file = File.objects.create(
+                user=file.user,
+                file_name=file.file_name,
+                encrypted_content=decrypted_content,
+                upload_date=file.upload_date
+            )
+            print(new_file.encrypted_content)
+
+        except File.DoesNotExist:
+            raise Http404("File does not exist")
+        
+        link_type = request.POST.get('link_type', 'download')
+        if link_type not in ['view', 'download']:
+            return JsonResponse({'error': 'Invalid link type'}, status=400)
+        
+        expiration_time = datetime.now() + timedelta(hours=1)  # link expires in 1 hour
+        share_link = ShareLink.objects.create(file=new_file, expiration_time=expiration_time)
         return JsonResponse({'share_link': request.build_absolute_uri(f'/api/files/share/{share_link.token}/')})
+    
+        # response = HttpResponse(decrypted_content, content_type='application/octet-stream')
+        # response['Content-Disposition'] = f'attachment; filename="{share_link.file.file_name}"'
+        # return response
 
 
 # class DownloadViaShareLinkView(View):
@@ -131,13 +156,18 @@ class CreateShareLinkView(View):
 #         except ShareLink.DoesNotExist:
 #             raise Http404("Share link not found")
 
-#         if share_link.is_expired():
-#             raise Http404("Share link expired or already used")
-
 #         # Mark the link as used
 #         share_link.used = True
 #         share_link.save()
 
-#         response = HttpResponse(share_link.file.content, content_type='application/octet-stream')
-#         response['Content-Disposition'] = f'attachment; filename="{share_link.file.file_name}"'
-#         return response
+        # response = HttpResponse(share_link.file.content, content_type='application/octet-stream')
+        # response['Content-Disposition'] = f'attachment; filename="{share_link.file.file_name}"'
+        # return response
+
+def handle_share_link(request, token):
+    # Retrieve the share link from the database
+    share_link = get_object_or_404(ShareLink, token=token)
+    
+    # Now you can handle the shared file using share_link.file_id
+    # For example, you can return the file or its details
+    return JsonResponse({'file': share_link.file})

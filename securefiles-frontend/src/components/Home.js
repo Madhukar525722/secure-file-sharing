@@ -10,7 +10,7 @@ import { login } from '../actions/auth';
 
 const Login = () => {
     const navigate = useNavigate();
-    const paperStyle = { padding: 20, height: '30vh', width: 280, margin: "20px auto" };
+    const paperStyle = { padding: 20, height: '45vh', width: 280, margin: "20px auto" };
     const avatarStyle = { backgroundColor: '#1bbd7e' };
     const btnstyle = { margin: '8px 0' };
 
