@@ -1,8 +1,11 @@
+// START GENAI
 import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../actions/auth';
 import axios from 'axios';
+import { AppBar, Toolbar, Typography, IconButton, Button, Grid, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import CryptoJS from 'crypto-js';
 
 const FileUpload = () => {
@@ -36,7 +39,7 @@ const FileUpload = () => {
   const handleFileUpload = async (e) => {
     e.preventDefault();
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       const encryptedContent = CryptoJS.AES.encrypt(e.target.result, 'encryption_key').toString();
@@ -44,7 +47,6 @@ const FileUpload = () => {
       formData.append('file_name', file.name);
       formData.append('encrypted_content', encryptedContent);
       const token = localStorage.getItem('authToken');
-      console.log('Authorization token:', token); // Log the token
 
       try {
         const response = await axios.post('/api/fileupload/', formData, {
@@ -53,16 +55,12 @@ const FileUpload = () => {
             'Authorization': `Bearer ${token}`
           }
         });
-        for (let pair of formData.entries()) {
-          console.log(pair[0] + ': ' + pair[1]);
-        }
-        console.log('File upload response:', response.data);
         alert('File uploaded successfully!');
+        fetchFiles();  // Refresh the file list after upload
       } catch (error) {
         console.error('File upload error:', error.response ? error.response.data : error);
         alert('File upload failed');
       }
-      fetchFiles();  // Refresh the file list after upload
     };
     reader.readAsDataURL(file);
   };
@@ -73,14 +71,13 @@ const FileUpload = () => {
   };
 
   const handleFileDownload = (fileId) => {
-
     axios({
       url: `/api/files/download/${fileId}/`,
       method: 'GET',
       responseType: 'blob',
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-      }, // Important
+      },
     }).then((response) => {
       const fileName = response.headers['content-disposition'].split('filename=')[1].replace(/"/g, '');
 
@@ -89,7 +86,7 @@ const FileUpload = () => {
         const decryptedContent = CryptoJS.AES.decrypt(e.target.result, 'encryption_key').toString(CryptoJS.enc.Utf8);
         const link = document.createElement('a');
         link.href = decryptedContent;
-        link.setAttribute('download', fileName); // Use the file name from the file list
+        link.setAttribute('download', fileName);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -114,31 +111,75 @@ const FileUpload = () => {
 
   return (
     <div>
-      <form onSubmit={handleFileUpload}>
-        <input type="file" onChange={handleFileChange} />
-        <button type="submit">Upload</button>
-      </form>
-      <button onClick={handleLogout}>Logout</button>
+      <AppBar position="static">
+        <Toolbar>
+          <IconButton
+            size="large"
+            edge="start"
+            color="inherit"
+            aria-label="menu"
+            sx={{ mr: 2 }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Secure File Sharing Application
+          </Typography>
+          <Button color="inherit" onClick={handleLogout}>Logout</Button>
+        </Toolbar>
+      </AppBar>
 
-      <h2>Files you have access to:</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>File Name</th>
-            <th>Upload Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {files.map((file) => (
-            <tr key={file.id}>
-              <td>{file.file_name}</td>
-              <td>{new Date(file.upload_date).toLocaleDateString()}</td>
-              <button onClick={() => handleFileDownload(file.id)}>Download</button>
-              <button onClick={() => handleCreateShareLink(file)}>Create Share Link</button>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Grid container spacing={2} justifyContent="center" style={{ marginTop: 20 }}>
+        <Grid item xs={12} md={8}>
+          <Paper elevation={10} style={{ padding: 20 }}>
+            <form onSubmit={handleFileUpload}>
+              <TextField
+                type="file"
+                fullWidth
+                onChange={handleFileChange}
+              />
+              <Button
+                type="submit"
+                color="primary"
+                variant="contained"
+                style={{ marginTop: 10 }}
+                fullWidth
+              >
+                Upload
+              </Button>
+            </form>
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={8}>
+          <Paper elevation={10} style={{ padding: 20, marginTop: 20 }}>
+            <Typography variant="h6">Files you have access to:</Typography>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>File Name</TableCell>
+                    <TableCell>Upload Date</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {files.map((file) => (
+                    <TableRow key={file.id}>
+                      <TableCell>{file.file_name}</TableCell>
+                      <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button onClick={() => handleFileDownload(file.id)}>Download</Button>
+                        <Button onClick={() => handleCreateShareLink(file)}>Create Share Link</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Grid>
+      </Grid>
     </div>
   );
 };
