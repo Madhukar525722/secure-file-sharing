@@ -29,7 +29,7 @@ SECRET_KEY = '6@bdsr%&n@sv$y!k9isatxh-$bln5q)pe)=vlc1wy1ny&#$#*j'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,backend").split(",")
 
 
 # Application definition
