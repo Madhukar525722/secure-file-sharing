@@ -1,21 +1,15 @@
-FROM node:22-bookworm AS frontend
+FROM node:22.9.0-alpine AS frontend
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y ca-certificates
 # Copy frontend source files
 COPY securefiles-frontend/package.json securefiles-frontend/package-lock.json ./
-RUN npm install redux react-redux redux-thunk axios web-vitals
-RUN npm install @mui/material @emotion/react @emotion/styled
-RUN npm install @mui/icons-material
+RUN yarn add redux react-redux redux-thunk axios web-vitals
+RUN yarn add @mui/material @emotion/react @emotion/styled
+RUN yarn add @mui/icons-material
+
+
 COPY securefiles-frontend/ ./
 
-# Build the frontend
-RUN npm run build
-
-# Use a lightweight web server to serve the built frontend
-FROM nginx:alpine
-COPY --from=frontend /app/build /usr/share/nginx/html
-
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+#RUN npm start
+CMD ["npm", "start"]

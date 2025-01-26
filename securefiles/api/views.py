@@ -90,7 +90,6 @@ class FileUploadView(generics.CreateAPIView):
                 user = User.objects.get(id=user_id)
                 encrypted_content = self.request.data.get('encrypted_content')
                 encrypted_content_bytes = base64.b64decode(encrypted_content)
-                print(f"Encrypted content (base64 decoded bytes): {encrypted_content}")
                 serializer.save(user=user, encrypted_content=encrypted_content_bytes)
             except (jwt.ExpiredSignatureError, jwt.DecodeError, User.DoesNotExist) as e:
                 print(f"JWT decoding error or user not found: {e}")
