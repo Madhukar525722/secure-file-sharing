@@ -41,3 +41,7 @@ Make sure you have the following installed on your local development machine:
 
 - Frontend: [http://localhost:3000/](http://localhost:3000/)
 - Backend: [http://localhost:8000/](http://localhost:8000/)
+
+### **BUG**
+- **Currently functionality will only work for username: user and password: user**
+
