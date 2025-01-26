@@ -40,7 +40,8 @@ const FileUpload = () => {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
       });
-      setFiles(response.data);
+      const reversedFiles = response.data.reverse();
+      setFiles(reversedFiles);
     } catch (error) {
       console.error('Error fetching files:', error.response ? error.response.data : error);
     }
